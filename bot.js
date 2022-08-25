@@ -1,3 +1,4 @@
+const { AsciiTable3 } = require('ascii-table3');
 const schedule = require('node-schedule');
 const got = require('got');
 const express = require('express');
@@ -33,11 +34,15 @@ mongoose.connect(dbUrl).then(() => {
   console.log(`Connected to the database`);
 });
 
-bot.onText(/\/register (.+)/, async (msg, match) => {
-  const username = msg.from.username;
+bot.onText(/\/register/, async (msg) => {
+  const args = msg.text.split(" ").slice(1);
   const chatId = msg.chat.id;
-  const ojuz = match[1];
-  console.log(`${username} ${chatId} ${ojuz}`);
+  if(args.length === 0) {
+    bot.sendMessage(chatId, 'You must specify your oj.uz username.');
+    return ;
+  }
+  const username = msg.from.username;
+  const ojuz = args[0];
   if((await doesUserExist(ojuz)) === false) {
     bot.sendMessage(chatId, `No oj.uz account with username ${ojuz} exists.`);
     return ;
@@ -56,10 +61,17 @@ bot.onText(/\/register (.+)/, async (msg, match) => {
   }
 });
   
-bot.onText(/\/challenge @(.+)/, async (msg, match) => {
+bot.onText(/\/challenge/, async (msg) => {
+  const args = msg.text.split(" ").slice(1);
+  if(args.length === 0) {
+    bot.sendMessage('You must specify the username of the person you want to challenge.');
+    return ;
+  }
+
   const user1 = msg.from.username;
   const user1_fn = msg.from.first_name;
-  const user2 = match[1];
+  const user2 = args[0][0] === '@' ? args[0].slice(1) : args[0];
+    
   const chatId = msg.chat.id;
   const userDoc1 = await User.findOne({chatId: chatId, username: user1});
   const userDoc2 = await User.findOne({chatId: chatId, username: user2});
@@ -75,7 +87,7 @@ bot.onText(/\/challenge @(.+)/, async (msg, match) => {
     bot.sendMessage(chatId, `@${user2} is not registered for duel.`);
   } else {
     bot.sendMessage(chatId, 
-      `@${user2} ${user1_fn} is challenging you in a duel.\nPlease type "yes" or "no" within one minute if you want to accept or decline the invitation.`);
+      `@${user2} ${user1_fn} is challenging you in a duel.\nPlease use the accept or decline commands as soon as possible.`);
     matches.push({
       chatId: chatId,
       user1: user1,
@@ -91,38 +103,68 @@ bot.onText(/\/challenge @(.+)/, async (msg, match) => {
       win: null,
       upto1: null,
       upto2: null,
-      creation: Date.now()
+      creation: Date.now(),
+      withdraw1: false,
+      withdraw2: false,
     });
   }
 });
 
-bot.onText(/yes/, msg => {
+bot.onText(/\/withdraw/, msg => {
+  const username = msg.from.username;
+  const chatId = msg.chat.id;
+  bot.sendMessage(chatId, "Hello guys");
+  let id = -1;
+  let change = false;
+  for(let i = 0; i < matches.length; i++) {
+    const item = matches[i];
+    if(item.user1 !== username && item.user2 !== username) continue;
+    if(item.user1 === username) {
+      matches[i].withdraw1 = true;
+    }
+    if (item.user2 === username) {
+      matches[i].withdraw2 = true;
+    }
+    if(matches[i].withdraw1 === false || matches[i].withdraw2 === false) {
+      bot.sendMessage(chatId, 'Both players has to withdraw the match.');
+    } else {
+    }
+    break;
+  }
+});
+
+bot.onText(/\/accept/, msg => {
   const username = msg.from.username;
   const chatId = msg.chat.id;
   for(let i = 0; i < matches.length; i++) {
     const item = matches[i];
     if(item.chatId === chatId && item.user2 === username && item.status === -1) {
       matches[i].status = 1;
-      bot.sendMessage(chatId, `@${item.user2} accepted the challenge from @${item.user1}.\nPlease enter the duration in minutes (must be an integer between 10 and 180)`);
+      bot.sendMessage(chatId, `@${item.user2} accepted the challenge from @${item.user1}.\nPlease set the duration in minutes (between 10 to 180) using the duration command.`);
       break;
     }
   }
 });
-bot.onText(/no/, msg => {
+bot.onText(/\/decline/, msg => {
+  console.log(msg);
   const username = msg.from.username;
   const chatId = msg.chat.id;
   for(let i = 0; i < matches.length; i++) {
     const item = matches[i];
     if(item.chatId === chatId && item.user2 === username && item.status === -1) {
       matches[i].status = 0;
-      bot.sendMessage(chatId, `@${item.user2} declined the challenge from @${item.user1}`);
       break;
     }
   }
 });
-bot.onText(/\d+/, async (msg, match) => {
-  const username = msg.from.username;
+bot.onText(/\/duration/, async (msg) => {
+  const args = msg.text.split(" ").slice(1);
   const chatId = msg.chat.id;
+  if(args.length === 0 || isNaN(parseInt(args[0]))) {
+    bot.sendMessage(chatId, "You must specify a number between 10 and 180 (in minutes).");
+    return ;
+  }
+  const username = msg.from.username;
   let id = -1;
   for(let i = 0; i < matches.length; i++) {
     const item = matches[i];
@@ -132,41 +174,82 @@ bot.onText(/\d+/, async (msg, match) => {
     }
   }
   if(id === -1) {
+    bot.sendMessage(chatId, 'You are not in any ongoing matches.');
     return ;
   }
-  const num = parseInt(match[0]);
+  const num = parseInt(args[0]);
   const item = matches[id];
+  if(item.duration !== null) {
+    bot.sendMessage(chatId, 'Match duration is already set.');
+    return ;
+  }
+  if(10 <= num && num <= 180) {
+    item.duration = num;
+    bot.sendMessage(chatId, `Match duration is set to ${num}. Please set the difficulty of the problem (between 1 and 10) using the difficulty command.`);
+  } else {
+    bot.sendMessage(chatId, `Match duration must be between 10 and 180 minutes.`);
+  }
+  if (item.problem === null) {
+  }
+  matches[id] = item;
+  console.log(matches[id]);
+});
+
+bot.onText(/\/difficulty/, async msg => {
+  const args = msg.text.split(" ").slice(1);
+  const chatId = msg.chat.id;
+  if(args.length === 0 || isNaN(parseInt(args[0]))) {
+    bot.sendMessage(chatId, "You must specify a number between 1 and 10.");
+    return ;
+  }
+  const username = msg.from.username;
+  let id = -1;
+  for(let i = 0; i < matches.length; i++) {
+    const item = matches[i];
+    if(item.chatId === chatId && item.status === 1 && item.user1 === username) {
+      id = i;
+      break;
+    }
+  }
+  if(id === -1) {
+    bot.sendMessage(chatId, 'You are not in any ongoing matches.');
+    return ;
+  }
+  const num = parseInt(args[0]);
+  const item = matches[id];
+  
   if(item.duration === null) {
-    if(10 <= num && num <= 180) {
-      item.duration = num;
-      bot.sendMessage(chatId, `Match duration is set to ${num}. Please enter the difficulty of the problem between 1 and 10.`);
+    bot.sendMessage(chatId, 'You must set the duration first.');
+    return ;
+  }
+  if(item.problem !== null) {
+    bot.sendMessage(chatId, 'You cannot set the difficulty now.');
+    return ; 
+  }
+  if(1 <= num && num <= 10) {
+    const problem = await getRandomProblem(item.ojuz1, item.ojuz2, num);
+    if(problem !== null) {
+      bot.sendMessage(chatId, 
+        `Difficulty is set to ${num}. Here is the link for the problem selected around that difficulty:\nhttps://oj.uz/problem/view/${problem}`);
+      item.problem = problem;
+      const details = await getProblemDetails(problem);
+      
+      item.score1 = details.score.map(i => 0);
+      item.score2 = details.score.map(i => 0);
+      item.win = details.score.map(i => 0);
+      item.start = Date.now();
     } else {
-      bot.sendMessage(chatId, `Match duration must be between 10 and 180 minutes.`);
+      bot.sendMessage(chatId, 'No problem found around that difficuly. Please select a different difficulty level.');
     }
-  } else if (item.problem === null) {
-    if(1 <= num && num <= 10) {
-      const problem = 'IZhO19_xoractive' // await getRandomProblem(item.ojuz1, item.ojuz2, num);
-      if(problem !== null) {
-        bot.sendMessage(chatId, `Difficulty is set to ${num}. Here is the link for the problem selected around that difficulty:\nhttps://oj.uz/problem/view/${problem}`);
-        item.problem = problem;
-        const details = await getProblemDetails(problem);
-        
-        item.score1 = details.score.map(i => 0);
-        item.score2 = details.score.map(i => 0);
-        item.win = details.score.map(i => 0);
-        item.start = Date.now();
-      } else {
-        bot.sendMessage(chatId, 'No problem found around that difficuly. Please select a different difficulty level.');
-      }
-    } else {
-      bot.sendMessage(chatId, `Please enter a difficulty between 1 and 10.`);
-    }
+  } else {
+    bot.sendMessage(chatId, `Please enter a difficulty between 1 and 10.`);
   }
   matches[id] = item;
   console.log(matches[id]);
 })
 
 bot.on("message", msg => {
+  console.log("Hello Guys");
 });
 
 async function getDocumentFromUrl(url) {
@@ -267,18 +350,21 @@ async function getUrlsFromProfile(profile) {
 }
 
 function calculatePoints(match) {
+  if(match.win === null) {
+    return { total1: null, total2: null };
+  }
   let point1 = 0;
   let point2 = 0;
   match.win.forEach((val, i) => {
     if(val === 1) point1 += match.score1[i];
     if(val === 2) point2 += match.score2[i]; 
   });
-  return { point1: point1, point2: point2 }; 
+  return { total1: point1, total2: point2 }; 
 }
 
 // mutates match object
 async function updateMatch(match) {
-  if(match.start === null) {
+  if(match.start === null || !matches.includes(match)) {
     return false;
   }
   const prevPoints = calculatePoints(match);
@@ -309,7 +395,7 @@ async function updateMatch(match) {
   if(sub1.length > 0) match.upto1 = sub1[0].id;
   if(sub2.length > 0) match.upto2 = sub2[0].id;
   const curPoints = calculatePoints(match);
-  return !(prevPoints.point1 === curPoints.point1 && prevPoints.point2 === curPoints.point2);
+  return !(prevPoints.total1 === curPoints.total1 && prevPoints.total2 === curPoints.total2);
 }
 
 async function getRandomProblem(user1, user2, diff) {
@@ -326,19 +412,75 @@ async function getRandomProblem(user1, user2, diff) {
   }
 }
 
-function emitStandings(match) {
-  const points = calculatePoints(match);
-  let text = "There was an update in the standings.\n\n";
-  text += `@${match.user1} points: ${points.point1}\n`;
-  text += `@${match.user2} points: ${points.point2}\n\n`;
-  text += `${match.user1} scores: ${match.score1.map((val, i) => match.win[i] === 1 ? val : 0).join(" ")}\n`;
-  text += `${match.user2} scores: ${match.score2.map((val, i) => match.win[i] === 2 ? val : 0).join(" ")}\n`;
-  console.log(match.chatId);
-  console.log(text);
-  bot.sendMessage(match.chatId, text);
+function isAlive(match) {
+  // 3 minutes until creation
+  let winnerText = '';
+  const { total1, total2 } = calculatePoints(match);
+  if(match.start !== null) {
+    if(total1 > total2) {
+      winnerText = `${match.user1} won the challenge.`;
+    } else if (total1 < total2) {
+      winnerText = `${match.user2} won the challenge.`;
+    } else {
+      winnerText = `The match resulted in a draw.`;
+    }
+  }
+  if(match.status === 0) {
+    bot.sendMessage(match.chatId, `@${match.user2} declined the challenge from @${match.user1}.`);
+    return false;
+  }
+  if(match.start === null && match.creation + 180 * 1000 <= Date.now()) {
+    bot.sendMessage(match.chatId, `Duel invalidated. You took too long to respond to the messages.`);
+    return false;
+  }
+  if(match.start !== null && match.start + match.duration * 60 * 1000 <= Date.now()) {
+    bot.sendMessage(match.chatId, `Match between @${match.user1} and @${match.user2} has ended. ${winnerText}`);
+    emitStandings(match);
+    return false;
+  }
+  if(match.withdraw1 && match.withdraw2) {
+    bot.sendMessage(match.chatId, `Match between @${match.user1} and @${match.user2} is withdrawn.`);
+    return false;
+  }
+  if(total1 !== null && total2 !== null && total1 + total2 >= 100) {
+    bot.sendMessage(match.chatId, `Match between @${match.user1} and @${match.user2} has ended. ${winnerText}`);
+    emitStandings(match);
+    return false;
+  }
+  return true;
 }
 
+function generateStandings(match) {
+  const table = new AsciiTable3('Standings');
+  table.setAlignCenter(1);
+  const header1 = AsciiTable3.truncateString(match.user1, 7);
+  const header2 = AsciiTable3.truncateString(match.user2, 7);
+  let total1 = 0;
+  let total2 = 0;
+  table.setHeading('Subtask', header1, header2);
+  for(let i = 0; i < match.win.length; i++) {
+    let point1 = 0;
+    let point2 = 0;
+    if(match.win[i] === 1) {
+      point1 = match.score1[i];
+    }
+    if(match.win[i] === 2) {
+      point2 = match.score2[i];
+    }
+    total1 += point1;
+    total2 += point2;
+    table.addRow(i + 1, point1, point2);
+  }
+  table.addRow("Total", total1, total2);
+  return `\`\`\`\n${table.toString()}\n\`\`\``
+}
+function emitStandings(match) {
+  bot.sendMessage(match.chatId, generateStandings(match), { parse_mode: 'MarkdownV2' });
+}
 schedule.scheduleJob('*/5 * * * * *', async () => {
+  matches = matches.filter(isAlive);
+  console.log(matches);
+  console.log(buffer);
   if(pointer === buffer.length) {
     buffer = [...matches];
     pointer = 0;
@@ -372,6 +514,7 @@ async function main() {
     upto2: null,
     creation: 1661440774437
   }
+  console.log(generateStandings(match));
 //  console.log(await updateMatch(match));
 //  console.log(await updateMatch(match));
 }
