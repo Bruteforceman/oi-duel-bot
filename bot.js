@@ -146,7 +146,6 @@ bot.onText(/\/accept/, msg => {
   }
 });
 bot.onText(/\/decline/, msg => {
-  console.log(msg);
   const username = msg.from.username;
   const chatId = msg.chat.id;
   for(let i = 0; i < matches.length; i++) {
@@ -192,7 +191,7 @@ bot.onText(/\/duration/, async (msg) => {
   if (item.problem === null) {
   }
   matches[id] = item;
-  console.log(matches[id]);
+  // console.log(matches[id]);
 });
 
 bot.onText(/\/difficulty/, async msg => {
@@ -245,11 +244,11 @@ bot.onText(/\/difficulty/, async msg => {
     bot.sendMessage(chatId, `Please enter a difficulty between 1 and 10.`);
   }
   matches[id] = item;
-  console.log(matches[id]);
+  // console.log(matches[id]);
 })
 
 bot.on("message", msg => {
-  console.log("Hello Guys");
+  // console.log("Hello Guys");
 });
 
 async function getDocumentFromUrl(url) {
@@ -479,17 +478,17 @@ function emitStandings(match) {
 }
 schedule.scheduleJob('*/5 * * * * *', async () => {
   matches = matches.filter(isAlive);
-  console.log(matches);
-  console.log(buffer);
+  // console.log(matches);
+  // console.log(buffer);
   if(pointer === buffer.length) {
     buffer = [...matches];
     pointer = 0;
     return ;
   }
-  console.log('Hello');
+  // console.log('Hello');
   let item = buffer[pointer];
   pointer += 1;
-  console.log(pointer, item);
+  // console.log(pointer, item);
   if(await updateMatch(item)) {
     emitStandings(item);
   }
@@ -497,7 +496,7 @@ schedule.scheduleJob('*/5 * * * * *', async () => {
 
 async function main() {
   // console.log(await getProblemDetails('APIO13_robots'));
-  const match = {
+  /* const match = {
     chatId: 201162422,
     user1: 'tasmeemreza',
     user2: 'tasmeemreza',
@@ -513,8 +512,8 @@ async function main() {
     upto1: null,
     upto2: null,
     creation: 1661440774437
-  }
-  console.log(generateStandings(match));
+  } */
+//  console.log(generateStandings(match));
 //  console.log(await updateMatch(match));
 //  console.log(await updateMatch(match));
 }
