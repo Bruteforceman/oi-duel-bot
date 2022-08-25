@@ -1,3 +1,4 @@
+process.env.NTBA_FIX_319 = 1;
 const { AsciiTable3 } = require('ascii-table3');
 const schedule = require('node-schedule');
 const got = require('got');
