@@ -494,27 +494,5 @@ schedule.scheduleJob('*/5 * * * * *', async () => {
   }
 });
 
-async function main() {
-  // console.log(await getProblemDetails('APIO13_robots'));
-  /* const match = {
-    chatId: 201162422,
-    user1: 'tasmeemreza',
-    user2: 'tasmeemreza',
-    ojuz1: 'Bruteforceman',
-    ojuz2: 'Bruteforceman',
-    status: 1,
-    problem: 'IZhO19_xoractive',
-    duration: 45,
-    start: 1661440800381,
-    score1: [ 0, 0 ],
-    score2: [ 0, 0 ],
-    win: [ 0, 0 ],
-    upto1: null,
-    upto2: null,
-    creation: 1661440774437
-  } */
-//  console.log(generateStandings(match));
-//  console.log(await updateMatch(match));
-//  console.log(await updateMatch(match));
-}
+async function main() {}
 main();
