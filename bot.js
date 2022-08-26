@@ -64,8 +64,10 @@ bot.onText(/\/register/, async (msg) => {
   
 bot.onText(/\/challenge/, async (msg) => {
   const args = msg.text.split(" ").slice(1);
+  const chatId = msg.chat.id;
+
   if(args.length === 0) {
-    bot.sendMessage('You must specify the username of the person you want to challenge.');
+    bot.sendMessage(chatId, 'You must specify the username of the person you want to challenge.');
     return ;
   }
 
@@ -73,7 +75,6 @@ bot.onText(/\/challenge/, async (msg) => {
   const user1_fn = msg.from.first_name;
   const user2 = args[0][0] === '@' ? args[0].slice(1) : args[0];
     
-  const chatId = msg.chat.id;
   const userDoc1 = await User.findOne({chatId: chatId, username: user1});
   const userDoc2 = await User.findOne({chatId: chatId, username: user2});
   
@@ -114,7 +115,6 @@ bot.onText(/\/challenge/, async (msg) => {
 bot.onText(/\/withdraw/, msg => {
   const username = msg.from.username;
   const chatId = msg.chat.id;
-  bot.sendMessage(chatId, "Hello guys");
   let id = -1;
   let change = false;
   for(let i = 0; i < matches.length; i++) {
