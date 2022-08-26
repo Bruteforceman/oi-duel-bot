@@ -17,12 +17,17 @@ const dbUrl = process.env.DB_URL;
 let matches = [];
 let buffer = [];
 let pointer = 0;
+let dbUpdate = false;
 
 const UserSchema = new mongoose.Schema({
   chatId: { type: String, required: true },
   username: { type: String, required: true },
   ojuz : { type: String, required: true }
 });
+const MatchSchema = new mongoose.Schema({
+  matches: [Object]
+});
+const Match = mongoose.model('Match', MatchSchema);
 const User = mongoose.model('User', UserSchema);
 
 app.get('/', (req, res) => {
@@ -36,7 +41,7 @@ mongoose.connect(dbUrl).then(() => {
 });
 
 bot.onText(/\/register/, async (msg) => {
-  const args = msg.text.split(" ").slice(1);
+  const args = msg.text.split(" ").filter(item => item.length > 0).slice(1);
   const chatId = msg.chat.id;
   if(args.length === 0) {
     bot.sendMessage(chatId, 'You must specify your oj.uz username.');
@@ -63,7 +68,7 @@ bot.onText(/\/register/, async (msg) => {
 });
   
 bot.onText(/\/challenge/, async (msg) => {
-  const args = msg.text.split(" ").slice(1);
+  const args = msg.text.split(" ").filter(item => item.length > 0).slice(1);
   const chatId = msg.chat.id;
 
   if(args.length === 0) {
@@ -109,6 +114,7 @@ bot.onText(/\/challenge/, async (msg) => {
       withdraw1: false,
       withdraw2: false,
     });
+    dbUpdate = true;
   }
 });
 
@@ -126,11 +132,12 @@ bot.onText(/\/withdraw/, msg => {
     if (item.user2 === username) {
       matches[i].withdraw2 = true;
     }
+    dbUpdate = true;
     if(matches[i].withdraw1 === false || matches[i].withdraw2 === false) {
       bot.sendMessage(chatId, 'Both players have to withdraw the match.');
     } else {
+      break;
     }
-    break;
   }
 });
 
@@ -141,6 +148,7 @@ bot.onText(/\/accept/, msg => {
     const item = matches[i];
     if(item.chatId === chatId && item.user2 === username && item.status === -1) {
       matches[i].status = 1;
+      dbUpdate = true;
       bot.sendMessage(chatId, `@${item.user2} accepted the challenge from @${item.user1}.\nPlease set the duration in minutes (between 10 to 180) using the duration command.`);
       break;
     }
@@ -153,12 +161,13 @@ bot.onText(/\/decline/, msg => {
     const item = matches[i];
     if(item.chatId === chatId && item.user2 === username && item.status === -1) {
       matches[i].status = 0;
+      dbUpdate = true;
       break;
     }
   }
 });
 bot.onText(/\/duration/, async (msg) => {
-  const args = msg.text.split(" ").slice(1);
+  const args = msg.text.split(" ").filter(item => item.length > 0).slice(1);
   const chatId = msg.chat.id;
   if(args.length === 0 || isNaN(parseInt(args[0]))) {
     bot.sendMessage(chatId, "You must specify a number between 10 and 180 (in minutes).");
@@ -184,6 +193,7 @@ bot.onText(/\/duration/, async (msg) => {
     return ;
   }
   if(10 <= num && num <= 180) {
+    dbUpdate = true;
     item.duration = num;
     bot.sendMessage(chatId, `Match duration is set to ${num}. Please set the difficulty of the problem (between 1 and 10) using the difficulty command.`);
   } else {
@@ -194,7 +204,7 @@ bot.onText(/\/duration/, async (msg) => {
 });
 
 bot.onText(/\/difficulty/, async msg => {
-  const args = msg.text.split(" ").slice(1);
+  const args = msg.text.split(" ").filter(item => item.length > 0).slice(1);
   const chatId = msg.chat.id;
   if(args.length === 0 || isNaN(parseInt(args[0]))) {
     bot.sendMessage(chatId, "You must specify a number between 1 and 10.");
@@ -228,6 +238,7 @@ bot.onText(/\/difficulty/, async msg => {
     const problem = await getRandomProblem(item.ojuz1, item.ojuz2, num);
     // item.ojuz2 = 'shafinalam';
     if(problem !== null) {
+      dbUpdate = true;
       bot.sendMessage(chatId, 
         `Difficulty is set to ${num}. Here is the link for the problem selected around that difficulty:\nhttps://oj.uz/problem/view/${problem}`);
       item.problem = problem;
@@ -381,7 +392,7 @@ function calculatePoints(match) {
 
 // mutates match object
 async function updateMatch(match) {
-  if(match.start === null || !matches.includes(match)) {
+  if(match.start === null) {
     return false;
   }
   const prevPoints = calculatePoints(match);
@@ -394,7 +405,6 @@ async function updateMatch(match) {
   });
   if(combine.length > 0) {
     console.log('Found submissions');
-    console.log(combine);
   }
   for(const submission of combine) {
     if(submission.user === match.ojuz1) {
@@ -415,8 +425,18 @@ async function updateMatch(match) {
   }
   if(sub1.length > 0) match.upto1 = sub1[0].id;
   if(sub2.length > 0) match.upto2 = sub2[0].id;
-  console.log(generateStandings(match));
   const curPoints = calculatePoints(match);
+  const { total1, total2 } = curPoints;
+
+  if(total1 + total2 >= 100 || match.start + match.duration * 60 * 1000 <= Date.now()) {
+    let text = `Match between @${match.user1} and @${match.user2} has ended. `;
+    if(total1 > total2) text += `${match.user1} won the duel.`;
+    else if (total1 < total2) text += `${match.user2} won the duel.`;
+    else text += `The duel was a draw.`;
+    text += ' Here is the final standings.';
+    bot.sendMessage(match.chatId, text);
+    return true;
+  }
   return !(prevPoints.total1 === curPoints.total1 && prevPoints.total2 === curPoints.total2);
 }
 
@@ -434,39 +454,25 @@ async function getRandomProblem(user1, user2, diff) {
   }
 }
 
-function isAlive(match) {
+function isAlive(match, showMsg=false) {
   // 3 minutes until creation
-  let winnerText = '';
   const { total1, total2 } = calculatePoints(match);
-  if(match.start !== null) {
-    if(total1 > total2) {
-      winnerText = `${match.user1} won the challenge.`;
-    } else if (total1 < total2) {
-      winnerText = `${match.user2} won the challenge.`;
-    } else {
-      winnerText = `The match resulted in a draw.`;
-    }
-  }
   if(match.status === 0) {
-    bot.sendMessage(match.chatId, `@${match.user2} declined the challenge from @${match.user1}.`);
+    if(showMsg) bot.sendMessage(match.chatId, `@${match.user2} declined the challenge from @${match.user1}.`);
     return false;
   }
   if(match.start === null && match.creation + 180 * 1000 <= Date.now()) {
-    bot.sendMessage(match.chatId, `Duel invalidated. You took too long to respond to the messages.`);
+    if(showMsg) bot.sendMessage(match.chatId, `Duel invalidated. You took too long to respond to the messages.`);
     return false;
   }
   if(match.start !== null && match.start + match.duration * 60 * 1000 <= Date.now()) {
-    bot.sendMessage(match.chatId, `Match between @${match.user1} and @${match.user2} has ended. ${winnerText}`);
-    emitStandings(match);
     return false;
   }
   if(match.withdraw1 && match.withdraw2) {
-    bot.sendMessage(match.chatId, `Match between @${match.user1} and @${match.user2} is withdrawn.`);
+    if(showMsg) bot.sendMessage(match.chatId, `Match between @${match.user1} and @${match.user2} is withdrawn.`);
     return false;
   }
   if(total1 !== null && total2 !== null && total1 + total2 >= 100) {
-    bot.sendMessage(match.chatId, `Match between @${match.user1} and @${match.user2} has ended. ${winnerText}`);
-    emitStandings(match);
     return false;
   }
   return true;
@@ -499,23 +505,55 @@ function generateStandings(match) {
 function emitStandings(match) {
   bot.sendMessage(match.chatId, generateStandings(match), { parse_mode: 'MarkdownV2' });
 }
+
+function isEqual(a, b) {
+  if(a.length !== b.length) return false;
+  const n = a.length;
+  for(let i = 0; i < n; i++) {
+    if(JSON.stringify(a[i]) !== JSON.stringify(b[i])) {
+      return false;
+    }
+  }
+  return true;
+}
+
 schedule.scheduleJob('*/5 * * * * *', async () => {
-  matches = matches.filter(isAlive);
-  // console.log(matches);
-  // console.log(buffer);
+  if(!matches.every(isAlive)) {
+    matches = matches.filter(item => isAlive(item, true));
+    dbUpdate = true;
+  }
   if(pointer === buffer.length) {
-    buffer = [...matches];
     pointer = 0;
+    buffer = [...matches]
+    if(dbUpdate) {
+      console.log('Update db');
+      dbUpdate = false;
+      const dbBuffer = matches.map(JSON.stringify).map(JSON.parse);
+      let matchList = await Match.findOne();
+      if(matchList === null) {
+        matchList = new Match({ matches: dbBuffer });
+        matchList.save();
+      } else {
+        matchList.matches = dbBuffer;
+        matchList.save();
+      }
+    }
     return ;
   }
-  // console.log('Hello');
   let item = buffer[pointer];
   pointer += 1;
-  // console.log(pointer, item);
   if(await updateMatch(item)) {
+    dbUpdate = true;
     emitStandings(item);
   }
 });
 
-async function main() {}
+async function main() {
+  let matchList = await Match.findOne();
+  if(matchList === null) {
+    matches = []
+  } else {
+    matches = [...matchList.matches];
+  }
+}
 main();
