@@ -127,7 +127,7 @@ bot.onText(/\/withdraw/, msg => {
       matches[i].withdraw2 = true;
     }
     if(matches[i].withdraw1 === false || matches[i].withdraw2 === false) {
-      bot.sendMessage(chatId, 'Both players has to withdraw the match.');
+      bot.sendMessage(chatId, 'Both players have to withdraw the match.');
     } else {
     }
     break;
@@ -168,7 +168,7 @@ bot.onText(/\/duration/, async (msg) => {
   let id = -1;
   for(let i = 0; i < matches.length; i++) {
     const item = matches[i];
-    if(item.chatId === chatId && item.status === 1 && item.user1 === username) {
+    if(item.chatId === chatId && item.status === 1 && (item.user1 === username || item.user2 === username)) {
       id = i;
       break;
     }
@@ -189,8 +189,6 @@ bot.onText(/\/duration/, async (msg) => {
   } else {
     bot.sendMessage(chatId, `Match duration must be between 10 and 180 minutes.`);
   }
-  if (item.problem === null) {
-  }
   matches[id] = item;
   // console.log(matches[id]);
 });
@@ -206,7 +204,7 @@ bot.onText(/\/difficulty/, async msg => {
   let id = -1;
   for(let i = 0; i < matches.length; i++) {
     const item = matches[i];
-    if(item.chatId === chatId && item.status === 1 && item.user1 === username) {
+    if(item.chatId === chatId && item.status === 1 && (item.user1 === username || item.user2 === username)) {
       id = i;
       break;
     }
@@ -228,6 +226,7 @@ bot.onText(/\/difficulty/, async msg => {
   }
   if(1 <= num && num <= 10) {
     const problem = await getRandomProblem(item.ojuz1, item.ojuz2, num);
+    // item.ojuz2 = 'shafinalam';
     if(problem !== null) {
       bot.sendMessage(chatId, 
         `Difficulty is set to ${num}. Here is the link for the problem selected around that difficulty:\nhttps://oj.uz/problem/view/${problem}`);
@@ -265,7 +264,7 @@ async function getProblemDetails(problem) {
   if(table.children.length === 0) {
     return null;
   }
-  const submitId = table.querySelector('td').textContent;
+  const submitId = await getFirstSubmission(problem);
   const details = await parseSubmission(submitId);
   return {
     name: details.name,
@@ -304,12 +303,18 @@ async function parseSubmission(submitId) {
 async function getSubmissions(user, problem, upto = null) {
   const url = `https://oj.uz/submissions?handle=${user}&problem=${problem}`;
   const document = await getDocumentFromUrl(url);
-  const submissions = []
+  let submissions = []
 
   for(const item of document.querySelector("tbody").children) {
     const submitId = item.querySelector("a").textContent;
     if(submitId === upto) break;
-    submissions.push(await parseSubmission(submitId));
+    const evalText = item.querySelector(".text").textContent;
+    // console.log(evalText);
+    if(evalText === "Compilation error" || evalText.includes("/")) {
+      submissions.push(await parseSubmission(submitId));
+    } else {
+      submissions = []
+    }
   }
   return submissions;
 }
@@ -349,6 +354,18 @@ async function getUrlsFromProfile(profile) {
   return urls;
 }
 
+async function getFirstSubmission(problem) {
+  const url = `https://oj.uz/submissions?problem=${problem}`;
+  const document = await getDocumentFromUrl(url);
+  for(const item of document.querySelector("tbody").children) {
+    const verdict = item.querySelector(".text").textContent;
+    if(verdict !== 'Compilation error') {
+      return item.querySelector("a").href.split("/").pop();
+    }
+  }
+  return null;
+}
+
 function calculatePoints(match) {
   if(match.win === null) {
     return { total1: null, total2: null };
@@ -375,6 +392,10 @@ async function updateMatch(match) {
     else if (a.id > b.id) return 1;
     else return 0;
   });
+  if(combine.length > 0) {
+    console.log('Found submissions');
+    console.log(combine);
+  }
   for(const submission of combine) {
     if(submission.user === match.ojuz1) {
       submission.scored.forEach((val, i) => {
@@ -383,7 +404,7 @@ async function updateMatch(match) {
           match.win[i] = 1;
         }
       }); 
-    } else {
+    } else if (submission.user === match.ojuz2) {
       submission.scored.forEach((val, i) => {
         match.score2[i] = Math.max(match.score2[i], val);
         if(match.score2[i] > match.score1[i]) {
@@ -394,6 +415,7 @@ async function updateMatch(match) {
   }
   if(sub1.length > 0) match.upto1 = sub1[0].id;
   if(sub2.length > 0) match.upto2 = sub2[0].id;
+  console.log(generateStandings(match));
   const curPoints = calculatePoints(match);
   return !(prevPoints.total1 === curPoints.total1 && prevPoints.total2 === curPoints.total2);
 }
