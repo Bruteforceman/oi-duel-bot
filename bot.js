@@ -112,6 +112,7 @@ bot.onText(/\/challenge@OIDuelBot/, async (msg) => {
       start: null,
       score1: null,
       score2: null,
+      score: null, 
       win: null,
       upto1: null,
       upto2: null,
@@ -250,6 +251,7 @@ bot.onText(/\/difficulty@OIDuelBot/, async msg => {
       
       item.score1 = details.score.map(i => 0);
       item.score2 = details.score.map(i => 0);
+      item.score = details.score;
       item.win = details.score.map(i => 0);
       item.start = Date.now();
     } else {
@@ -449,8 +451,9 @@ async function updateMatch(match) {
   if(sub2.length > 0) match.upto2 = sub2[0].id;
   const curPoints = calculatePoints(match);
   const { total1, total2 } = curPoints;
+  const total = match.score.reduce((a, b) => a + b, 0);
 
-  if(total1 + total2 >= 100 || match.start + match.duration * 60 * 1000 <= Date.now()) {
+  if(total1 + total2 >= total || match.start + match.duration * 60 * 1000 <= Date.now()) {
     let text = `Match between @${match.user1} and @${match.user2} has ended. `;
     if(total1 > total2) text += `${match.user1} won the duel.`;
     else if (total1 < total2) text += `${match.user2} won the duel.`;
