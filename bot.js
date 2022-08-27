@@ -18,6 +18,7 @@ let matches = [];
 let buffer = [];
 let pointer = 0;
 let dbUpdate = false;
+const MAX_LEN = 30;
 
 const UserSchema = new mongoose.Schema({
   chatId: { type: String, required: true },
@@ -71,6 +72,10 @@ bot.onText(/\/challenge/, async (msg) => {
   const args = msg.text.split(" ").filter(item => item.length > 0).slice(1);
   const chatId = msg.chat.id;
 
+  if(matches.length > MAX_LEN) {
+    bot.sendMessage(chatId, 'OIDuelBot server is too busy now. Please try again later.');
+    return ;
+  }
   if(args.length === 0) {
     bot.sendMessage(chatId, 'You must specify the username of the person you want to challenge.');
     return ;
@@ -82,7 +87,7 @@ bot.onText(/\/challenge/, async (msg) => {
     
   const userDoc1 = await User.findOne({chatId: chatId, username: user1});
   const userDoc2 = await User.findOne({chatId: chatId, username: user2});
-  
+
   if(matches.filter(item => item.chatId === chatId && (item.user1 === user1 || item.user2 === user1)).length > 0) {
     bot.sendMessage(chatId, `@${user1} is already in a match. Please withdraw it first.`);
   } 
@@ -235,7 +240,7 @@ bot.onText(/\/difficulty/, async msg => {
     return ; 
   }
   if(1 <= num && num <= 10) {
-    const problem = await getRandomProblem(item.ojuz1, item.ojuz2, num);
+    const problem = 'IZhO13_trading'; //await getRandomProblem(item.ojuz1, item.ojuz2, num);
     // item.ojuz2 = 'shafinalam';
     if(problem !== null) {
       dbUpdate = true;
