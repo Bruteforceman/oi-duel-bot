@@ -41,7 +41,7 @@ mongoose.connect(dbUrl).then(() => {
   console.log(`Connected to the database`);
 });
 
-bot.onText(/\/register/, async (msg) => {
+bot.onText(/\/register@OIDuelBot/, async (msg) => {
   const args = msg.text.split(" ").filter(item => item.length > 0).slice(1);
   const chatId = msg.chat.id;
   if(args.length === 0) {
@@ -68,7 +68,7 @@ bot.onText(/\/register/, async (msg) => {
   }
 });
   
-bot.onText(/\/challenge/, async (msg) => {
+bot.onText(/\/challenge@OIDuelBot/, async (msg) => {
   const args = msg.text.split(" ").filter(item => item.length > 0).slice(1);
   const chatId = msg.chat.id;
 
@@ -123,7 +123,7 @@ bot.onText(/\/challenge/, async (msg) => {
   }
 });
 
-bot.onText(/\/withdraw/, msg => {
+bot.onText(/\/withdraw@OIDuelBot/, msg => {
   const username = msg.from.username;
   const chatId = msg.chat.id;
   let id = -1;
@@ -146,7 +146,7 @@ bot.onText(/\/withdraw/, msg => {
   }
 });
 
-bot.onText(/\/accept/, msg => {
+bot.onText(/\/accept@OIDuelBot/, msg => {
   const username = msg.from.username;
   const chatId = msg.chat.id;
   for(let i = 0; i < matches.length; i++) {
@@ -159,7 +159,7 @@ bot.onText(/\/accept/, msg => {
     }
   }
 });
-bot.onText(/\/decline/, msg => {
+bot.onText(/\/decline@OIDuelBot/, msg => {
   const username = msg.from.username;
   const chatId = msg.chat.id;
   for(let i = 0; i < matches.length; i++) {
@@ -171,7 +171,7 @@ bot.onText(/\/decline/, msg => {
     }
   }
 });
-bot.onText(/\/duration/, async (msg) => {
+bot.onText(/\/duration@OIDuelBot/, async (msg) => {
   const args = msg.text.split(" ").filter(item => item.length > 0).slice(1);
   const chatId = msg.chat.id;
   if(args.length === 0 || isNaN(parseInt(args[0]))) {
@@ -208,7 +208,7 @@ bot.onText(/\/duration/, async (msg) => {
   // console.log(matches[id]);
 });
 
-bot.onText(/\/difficulty/, async msg => {
+bot.onText(/\/difficulty@OIDuelBot/, async msg => {
   const args = msg.text.split(" ").filter(item => item.length > 0).slice(1);
   const chatId = msg.chat.id;
   if(args.length === 0 || isNaN(parseInt(args[0]))) {
@@ -261,6 +261,24 @@ bot.onText(/\/difficulty/, async msg => {
   matches[id] = item;
   // console.log(matches[id]);
 })
+
+bot.onText(/\/help@OIDuelBot/, async msg => {
+  let text = '<b>You need to start all commands with a forward slash</b>\n\n';
+  text += '/register <code>[oj.uz username]</code> - you have to register yourself in order to enter your duel\n\n'
+  text += '/challenge <code>[telegram username]</code> - you can challenge other users in a OI styled duel\n\n'
+  text += '/accept - you can accept the challenge from other users\n\n'
+  text += '/decline - you can decline the challenge from other users\n\n'
+  text += '/duration <code>[minutes]</code> - you can set the duration of your challenge between 10 and 180 minutes\n\n'
+  text += '/difficulty <code>[number]</code> - you can set a difficulty from 1 to 10\n\n'
+  text += '/withdraw - you can withdraw from your current challenge\n\n'
+  text += '/rules - you can see the rules of the duel'
+  bot.sendMessage(msg.chat.id, text, { parse_mode: 'HTML' });
+});
+
+bot.onText(/\/rules@OIDuelBot/, async msg => {
+  let text = "You can challenge other users in a OI styled duel. In the duel, you have to race against time to solve the subtasks before your opponent. If your opponent solves a particular subtask before you, they gets the point for that subtask, and you won't get any points for it even if you solve it in the future. The player with more points at the end of the duel wins the challenge."
+  bot.sendMessage(msg.chat.id, text);
+});
 
 bot.on("message", msg => {
   // console.log("Hello Guys");
