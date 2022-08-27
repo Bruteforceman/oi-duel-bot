@@ -240,8 +240,7 @@ bot.onText(/\/difficulty/, async msg => {
     return ; 
   }
   if(1 <= num && num <= 10) {
-    const problem = 'IZhO13_trading'; //await getRandomProblem(item.ojuz1, item.ojuz2, num);
-    // item.ojuz2 = 'shafinalam';
+    const problem = await getRandomProblem(item.ojuz1, item.ojuz2, num);
     if(problem !== null) {
       dbUpdate = true;
       bot.sendMessage(chatId, 
