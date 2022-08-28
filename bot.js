@@ -394,7 +394,7 @@ async function getFirstSubmission(problem) {
   const document = await getDocumentFromUrl(url);
   for(const item of document.querySelector("tbody").children) {
     const verdict = item.querySelector(".text").textContent;
-    if(verdict !== 'Compilation error') {
+    if(verdict.includes("/")) {
       return item.querySelector("a").href.split("/").pop();
     }
   }
